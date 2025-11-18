@@ -42,21 +42,44 @@ class _JoystickWidgetState extends State<JoystickWidget> {
     _repeatTimer?.cancel();
   }
 
+  /// Calcula qué comando mandar según la posición del joystick.
+  /// Ahora soporta:
+  /// F, B, L, R + diagonales Q, E, Z, C.
   void _computeDirection(Offset clamped) {
     final dx = clamped.dx;
     final dy = clamped.dy;
 
-    //🔥 SIN deadzone = jamás manda "S" por error
-    if (clamped.distance < 5) {
-      // pequeño centro: NO mandamos nada
+    const double deadZone = 5.0;
+    if (clamped.distance < deadZone) {
+      // No mandamos nada, el coche sigue con el último comando
       return;
     }
 
+    final absDx = dx.abs();
+    final absDy = dy.abs();
+
+    // Factor para decidir si es “más vertical”, “más horizontal” o diagonal
+    const double dominance = 1.7;
+
     String cmd;
-    if (dy.abs() > dx.abs()) {
+
+    if (absDy > absDx * dominance) {
+      // Casi totalmente vertical → F/B
       cmd = dy < 0 ? 'F' : 'B';
-    } else {
+    } else if (absDx > absDy * dominance) {
+      // Casi totalmente horizontal → L/R
       cmd = dx < 0 ? 'L' : 'R';
+    } else {
+      // Zona diagonal → Q/E/Z/C
+      if (dy < 0 && dx < 0) {
+        cmd = 'Q'; // Adelante + Izquierda
+      } else if (dy < 0 && dx > 0) {
+        cmd = 'E'; // Adelante + Derecha
+      } else if (dy > 0 && dx < 0) {
+        cmd = 'Z'; // Atrás + Izquierda
+      } else {
+        cmd = 'C'; // Atrás + Derecha
+      }
     }
 
     _sendOnce(cmd);
@@ -136,8 +159,10 @@ class _JoystickPainter extends CustomPainter {
       ..style = PaintingStyle.fill
       ..color = Colors.blue.withOpacity(0.75);
 
+    // círculo grande
     canvas.drawCircle(center, size.width / 2.5, outerPaint);
 
+    // knob
     final knobCenter = center + offset;
     canvas.drawCircle(knobCenter, size.width / 8, innerPaint);
   }
