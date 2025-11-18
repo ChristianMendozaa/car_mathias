@@ -59,24 +59,38 @@ class _ControlPageState extends State<ControlPage> {
   }
 
   Future<void> _loadAssignments() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_kPrefsKeyAssignments);
-    if (raw == null || raw.isEmpty) {
-      setState(() {
-        _customAssignments = [];
-      });
-      return;
-    }
     try {
-      final List<dynamic> decoded = jsonDecode(raw) as List<dynamic>;
-      final parsed = decoded
-          .map((e) => CustomAssignment.fromJson(e as Map<String, dynamic>))
-          .toList();
-      setState(() {
-        _customAssignments = parsed;
-      });
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kPrefsKeyAssignments);
+      if (raw == null || raw.isEmpty) {
+        setState(() {
+          _customAssignments = [];
+        });
+        return;
+      }
+      try {
+        final List<dynamic> decoded = jsonDecode(raw) as List<dynamic>;
+        final parsed = decoded
+            .map((e) => CustomAssignment.fromJson(e as Map<String, dynamic>))
+            .toList();
+        setState(() {
+          _customAssignments = parsed;
+        });
+      } catch (_) {
+        // Mantener almacenamiento, sólo limpiar estado en memoria y avisar
+        setState(() {
+          _customAssignments = [];
+        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Asignaciones inválidas. Vuelve a guardarlas.')),
+        );
+      }
     } catch (_) {
-      await prefs.remove(_kPrefsKeyAssignments);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo acceder a almacenamiento local.')),
+      );
       setState(() {
         _customAssignments = [];
       });
@@ -84,16 +98,24 @@ class _ControlPageState extends State<ControlPage> {
   }
 
   Future<void> _saveAssignments() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = jsonEncode(_customAssignments.map((e) => e.toJson()).toList());
-    await prefs.setString(_kPrefsKeyAssignments, raw);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = jsonEncode(_customAssignments.map((e) => e.toJson()).toList());
+      await prefs.setString(_kPrefsKeyAssignments, raw);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo guardar en almacenamiento local.')),
+      );
+    }
   }
 
   bool _charIsDuplicate(String ch, {int? exceptIndex}) {
-    if (_reservedChars.contains(ch)) return true;
+    final chUpper = ch.toUpperCase();
+    if (_reservedChars.contains(chUpper)) return true;
     for (int i = 0; i < _customAssignments.length; i++) {
       if (exceptIndex != null && i == exceptIndex) continue;
-      if (_customAssignments[i].charValue == ch) return true;
+      if (_customAssignments[i].charValue.toUpperCase() == chUpper) return true;
     }
     return false;
   }
@@ -109,46 +131,54 @@ class _ControlPageState extends State<ControlPage> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
+          scrollable: true,
           title:
               Text(existing == null ? 'Nueva asignación' : 'Editar asignación'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: labelController,
-                  decoration: const InputDecoration(
-                    labelText: 'Etiqueta',
-                    hintText: 'Ej: Luces',
-                  ),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'La etiqueta es obligatoria';
-                    }
-                    return null;
-                  },
+          content: AnimatedPadding(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: labelController,
+                      decoration: const InputDecoration(
+                        labelText: 'Etiqueta',
+                        hintText: 'Ej: Luces',
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'La etiqueta es obligatoria';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: charController,
+                      decoration: const InputDecoration(
+                        labelText: 'Carácter a enviar',
+                        hintText: 'Un solo carácter (ASCII)',
+                      ),
+                      textCapitalization: TextCapitalization.characters,
+                      maxLength: 1,
+                      validator: (v) {
+                        final value = (v ?? '').trim();
+                        if (value.isEmpty) return 'Ingresa un carácter';
+                        if (value.runes.length != 1) return 'Debe ser 1 carácter';
+                        if (_charIsDuplicate(value, exceptIndex: index)) {
+                          return 'Ese carácter ya está asignado';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: charController,
-                  decoration: const InputDecoration(
-                    labelText: 'Carácter a enviar',
-                    hintText: 'Un solo carácter (ASCII)',
-                  ),
-                  textCapitalization: TextCapitalization.characters,
-                  maxLength: 1,
-                  validator: (v) {
-                    final value = (v ?? '').trim();
-                    if (value.isEmpty) return 'Ingresa un carácter';
-                    if (value.runes.length != 1) return 'Debe ser 1 carácter';
-                    if (_charIsDuplicate(value, exceptIndex: index)) {
-                      return 'Ese carácter ya está asignado';
-                    }
-                    return null;
-                  },
-                ),
-              ],
+              ),
             ),
           ),
           actions: [
@@ -159,10 +189,11 @@ class _ControlPageState extends State<ControlPage> {
             ElevatedButton(
               onPressed: () {
                 if (formKey.currentState?.validate() ?? false) {
+                  FocusScope.of(ctx).unfocus();
                   Navigator.of(ctx).pop(
                     CustomAssignment(
                       label: labelController.text.trim(),
-                      charValue: charController.text.trim(),
+                      charValue: charController.text.trim().toUpperCase(),
                     ),
                   );
                 }
@@ -240,8 +271,16 @@ class _ControlPageState extends State<ControlPage> {
       ),
     );
     if (ok != true) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kPrefsKeyAssignments);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kPrefsKeyAssignments);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo limpiar almacenamiento local.')),
+        );
+      }
+    }
     setState(() {
       _customAssignments = [];
     });
