@@ -418,6 +418,7 @@ class _ControlPageState extends State<ControlPage> {
           animation: _bt,
           builder: (context, _) {
             final connected = _bt.isConnected;
+            final bool keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
             return Scaffold(
               appBar: AppBar(
@@ -506,82 +507,83 @@ class _ControlPageState extends State<ControlPage> {
                       ),
                       const SizedBox(height: 8),
                       // ---------- Asignaciones personalizadas ----------
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Asignaciones personalizadas',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                if (_customAssignments.isNotEmpty)
-                                  Text(
-                                    '${_customAssignments.length}',
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
+                      if (!keyboardOpen)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Asignaciones personalizadas',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
                                   ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Expanded(
-                              child: _customAssignments.isEmpty
-                                  ? const Center(
-                                      child: Text(
-                                        'No hay asignaciones. Toca + para agregar.',
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    )
-                                  : Scrollbar(
-                                      thumbVisibility: true,
-                                      trackVisibility: true,
-                                      child: ListView.separated(
-                                        itemCount: _customAssignments.length,
-                                        separatorBuilder: (_, __) =>
-                                            const SizedBox(height: 6),
-                                        itemBuilder: (ctx, index) {
-                                          final item =
-                                              _customAssignments[index];
-                                          return Card(
-                                            child: ListTile(
-                                              title: Text(item.label),
-                                              subtitle: Text(
-                                                  'Carácter: ${item.charValue}'),
-                                              onTap: () => _bt
-                                                  .sendCommand(item.charValue),
-                                              trailing: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  IconButton(
-                                                    tooltip: 'Editar',
-                                                    icon:
-                                                        const Icon(Icons.edit),
-                                                    onPressed: () =>
-                                                        _showAddOrEditDialog(
-                                                      existing: item,
-                                                      index: index,
-                                                    ),
-                                                  ),
-                                                  IconButton(
-                                                    tooltip: 'Eliminar',
-                                                    icon: const Icon(
-                                                        Icons.delete_outline),
-                                                    onPressed: () =>
-                                                        _confirmDelete(index),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
+                                  if (_customAssignments.isNotEmpty)
+                                    Text(
+                                      '${_customAssignments.length}',
+                                      style:
+                                          Theme.of(context).textTheme.bodySmall,
                                     ),
-                            ),
-                          ],
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Expanded(
+                                child: _customAssignments.isEmpty
+                                    ? const Center(
+                                        child: Text(
+                                          'No hay asignaciones. Toca + para agregar.',
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      )
+                                    : Scrollbar(
+                                        thumbVisibility: true,
+                                        trackVisibility: true,
+                                        child: ListView.separated(
+                                          itemCount: _customAssignments.length,
+                                          separatorBuilder: (_, __) =>
+                                              const SizedBox(height: 6),
+                                          itemBuilder: (ctx, index) {
+                                            final item =
+                                                _customAssignments[index];
+                                            return Card(
+                                              child: ListTile(
+                                                title: Text(item.label),
+                                                subtitle: Text(
+                                                    'Carácter: ${item.charValue}'),
+                                                onTap: () => _bt
+                                                    .sendCommand(item.charValue),
+                                                trailing: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    IconButton(
+                                                      tooltip: 'Editar',
+                                                      icon:
+                                                          const Icon(Icons.edit),
+                                                      onPressed: () =>
+                                                          _showAddOrEditDialog(
+                                                        existing: item,
+                                                        index: index,
+                                                      ),
+                                                    ),
+                                                    IconButton(
+                                                      tooltip: 'Eliminar',
+                                                      icon: const Icon(
+                                                          Icons.delete_outline),
+                                                      onPressed: () =>
+                                                          _confirmDelete(index),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
