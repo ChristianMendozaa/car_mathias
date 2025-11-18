@@ -16,3 +16,28 @@ subprojects {
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
+
+// Ensure AGP 8+ namespace requirement is satisfied for third-party Android libraries
+subprojects { proj ->
+    proj.plugins.withId("com.android.library") {
+        def androidExt = proj.extensions.findByName("android")
+        if (androidExt != null && androidExt.hasProperty("namespace")) {
+            def currentNs = androidExt.namespace
+            if (currentNs == null || "$currentNs".trim().isEmpty()) {
+                def manifestFile = new File(proj.projectDir, "src/main/AndroidManifest.xml")
+                if (manifestFile.exists()) {
+                    try {
+                        def manifest = new groovy.xml.XmlSlurper().parse(manifestFile)
+                        def pkg = manifest.@package?.text()
+                        if (pkg && !pkg.trim().isEmpty()) {
+                            androidExt.namespace = pkg.trim()
+                            println("Set namespace for ${proj.name} to ${pkg}")
+                        }
+                    } catch (ignored) {
+                        // leave namespace unset if parsing fails
+                    }
+                }
+            }
+        }
+    }
+}
